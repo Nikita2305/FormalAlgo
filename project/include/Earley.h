@@ -6,7 +6,7 @@
 class Earley: public Algo {
 public:
     void fit(const Grammar& g) override;
-    bool process(const std::string& word) override;
+    bool process(const std::string& word) const override;
     bool Scan(ConfigurationSet& D, const Configuration& conf, char letter) const;
     bool Complete(ConfigurationSet& D, const Configuration& conf, const std::vector<ConfigurationSet>& sets) const;
     bool Predict(ConfigurationSet& D, const Configuration& conf) const;

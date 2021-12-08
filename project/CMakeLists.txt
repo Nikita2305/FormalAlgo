@@ -12,9 +12,16 @@ add_library(sources
     include/Grammar.h
     include/Rule.h
     include/Situation.h
+    include/ParserLR.h
+    include/NodeLR.h
+    include/SituationLR.h
+    include/Instruction.h
     src/Earley.cpp
     src/Grammar.cpp
-    src/Configuration.cpp)
+    src/ConfigurationSet.cpp
+    src/ParserLR.cpp
+    src/Instruction.cpp
+    src/NodeLR.cpp)
 
 add_executable(FormalAlgo main.cpp)
 

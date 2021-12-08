@@ -4,10 +4,11 @@
 
 #include <Grammar.h>
 #include <Earley.h>
+#include <ParserLR.h>
 
 BOOST_AUTO_TEST_CASE(GrammarTestGetters) {
     Grammar g("SABC", "abc", 'S');
-    BOOST_CHECK_EQUAL("SABC", g.getTerminals());
+    BOOST_CHECK_EQUAL("SABC", g.getNonTerminals());
     BOOST_CHECK_EQUAL("abc", g.getAlphabet());
     BOOST_CHECK_EQUAL('S', g.getS());
 }
@@ -57,19 +58,20 @@ Earley getEarley() {
 }
 
 bool operator==(const Configuration& a, const Configuration& b) {
-    return !(a < b) && !(b < a);
+    return !compare_configs(a, b) && !compare_configs(b, a);
 }
 
 bool operator!=(const Configuration& a, const Configuration& b) {
     return !(a == b);
 }
 
-bool operator==(const ConfigurationSet& a, const ConfigurationSet& b) {
-    if (a.before_point != b.before_point)
+template <typename T>
+bool operator==(const std::set<T>& a, const std::set<T>& b) {
+    if (a.size() != b.size())
         return false;
-    auto ai = a.configs.begin();    
-    auto bi = b.configs.begin();
-    while (ai != a.configs.end()) {
+    auto ai = a.begin();    
+    auto bi = b.begin();
+    while (ai != a.end()) {
         if (*ai != *bi) {
             return false;
         }
@@ -79,10 +81,16 @@ bool operator==(const ConfigurationSet& a, const ConfigurationSet& b) {
     return true;
 }
 
+bool operator==(const ConfigurationSet& a, const ConfigurationSet& b) {
+    if (a.before_point != b.before_point)
+        return false;
+    return a.configs == b.configs;
+}
+
 BOOST_AUTO_TEST_CASE(EarleyTestUpdate) {
     Earley algo = getEarley();
     std::vector<ConfigurationSet> vect;
-    vect.push_back({std::set<Configuration>(), 0}); 
+    vect.emplace_back(); 
     vect.back().configs.insert({{{'R', "S"}, 0}, 0});
     ConfigurationSet cs_true = vect[0];
 
@@ -100,11 +108,11 @@ BOOST_AUTO_TEST_CASE(EarleyTestUpdate) {
 
 BOOST_AUTO_TEST_CASE(EarleyTestScan1) { 
     Earley algo = getEarley();
-    ConfigurationSet cs{std::set<Configuration>(), 0};
+    ConfigurationSet cs;
     Configuration conf = {{{'R', "aS"}, 0}, 0}; 
     algo.Scan(cs, conf, 'a');
     
-    ConfigurationSet cs_true{std::set<Configuration>(), 0};
+    ConfigurationSet cs_true;
     Configuration new_conf = {{{'R', "aS"}, 1}, 0}; 
     cs_true.configs.insert(new_conf);
     BOOST_CHECK(cs_true == cs);
@@ -112,13 +120,13 @@ BOOST_AUTO_TEST_CASE(EarleyTestScan1) {
 
 BOOST_AUTO_TEST_CASE(EarleyTestScan2) { 
     Earley algo = getEarley();
-    ConfigurationSet cs{std::set<Configuration>(), 0};
+    ConfigurationSet cs;
     Configuration conf = {{{'R', "aS"}, 0}, 0}; 
     algo.Scan(cs, conf, 'b');
     BOOST_CHECK_EQUAL(cs.configs.size(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(EarleyTestProcess1) {
+BOOST_AUTO_TEST_CASE(EarleyTestProcess) {
     Earley algo = getEarley();
     BOOST_CHECK_EQUAL(algo.process(""), true);
     BOOST_CHECK_EQUAL(algo.process("a"), false);
@@ -128,4 +136,109 @@ BOOST_AUTO_TEST_CASE(EarleyTestProcess1) {
     BOOST_CHECK_EQUAL(algo.process("c"), false);
     BOOST_CHECK_EQUAL(algo.process("ba"), false);
     BOOST_CHECK_EQUAL(algo.process("aaaaaab"), true);
+}
+
+ParserLR getLR_simple() {
+    Grammar g("SC", "cd", 'S');
+    std::vector<Rule> rules;
+    rules.push_back({'S', "CC"});
+    rules.push_back({'C', "cC"});
+    rules.push_back({'C', "d"});
+    g.appendRules(rules);
+    ParserLR algo;
+    algo.fit(g);
+    return algo;
+}
+
+std::string str(const std::set<char>& s) {
+    std::string ret = "";
+    for (auto c : s) {
+        ret += c;
+    }
+    return ret;
+}
+
+BOOST_AUTO_TEST_CASE(LRTestGetFirst1) {
+    ParserLR algo = getLR_simple();
+    BOOST_CHECK_EQUAL(str(algo.getEpsilonCreators()), str(std::set<char>()));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("C")), str(std::set<char>({'c', 'd'})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("S")), str(std::set<char>({'c', 'd'})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("B")), str(std::set<char>({'c', 'd'})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("")), str(std::set<char>({ParserLR::END})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("c")), str(std::set<char>({'c'})));
+}
+
+BOOST_AUTO_TEST_CASE(LRTestProcess1) {
+    ParserLR algo = getLR_simple();
+    BOOST_CHECK_EQUAL(algo.process(""), false);
+    BOOST_CHECK_EQUAL(algo.process("a"), false);
+    BOOST_CHECK_EQUAL(algo.process("c"), false);
+    BOOST_CHECK_EQUAL(algo.process("cdcd"), true);
+    BOOST_CHECK_EQUAL(algo.process("ccdd"), true);
+    BOOST_CHECK_EQUAL(algo.process("cc"), false);
+    BOOST_CHECK_EQUAL(algo.process("ddd"), false);
+    BOOST_CHECK_EQUAL(algo.process("ccccdcccd"), true);
+}
+
+ParserLR getLR_epsilons() {
+    Grammar g("SCD", "cd", 'S');
+    std::vector<Rule> rules;
+    rules.push_back({'S', "CD"});
+    rules.push_back({'C', ""});
+    rules.push_back({'C', "c"});
+    rules.push_back({'D', ""});
+    rules.push_back({'D', "d"});
+    g.appendRules(rules);
+    ParserLR algo;
+    algo.fit(g);
+    return algo;
+}
+
+BOOST_AUTO_TEST_CASE(LRTestGetFirst2) {
+    ParserLR algo = getLR_epsilons();
+    BOOST_CHECK_EQUAL(str(algo.getEpsilonCreators()), str(std::set<char>({'B', 'S', 'C', 'D'})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("S")), str(std::set<char>({'c', 'd', ParserLR::END})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("C")), str(std::set<char>({'c', ParserLR::END})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("D")), str(std::set<char>({'d', ParserLR::END})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("B")), str(std::set<char>({'c', 'd', ParserLR::END})));
+}
+
+BOOST_AUTO_TEST_CASE(LRTestProcess2) {
+    ParserLR algo = getLR_epsilons();
+    BOOST_CHECK_EQUAL(algo.process(""), true);
+    BOOST_CHECK_EQUAL(algo.process("a"), false);
+    BOOST_CHECK_EQUAL(algo.process("c"), true);
+    BOOST_CHECK_EQUAL(algo.process("d"), true);
+    BOOST_CHECK_EQUAL(algo.process("cd"), true);
+    BOOST_CHECK_EQUAL(algo.process("cc"), false);
+}
+
+ParserLR getLR_cycled() {
+    Grammar g("S", "ab", 'S');
+    std::vector<Rule> rules;
+    rules.push_back({'S', "SaSb"});
+    rules.push_back({'S', ""});
+    g.appendRules(rules);
+    ParserLR algo;
+    algo.fit(g);
+    return algo;
+}
+
+BOOST_AUTO_TEST_CASE(LRTestGetFirst3) {
+    ParserLR algo = getLR_cycled();
+    BOOST_CHECK_EQUAL(str(algo.getEpsilonCreators()), str(std::set<char>({'R', 'S'})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("S")), str(std::set<char>({'a', ParserLR::END})));
+    BOOST_CHECK_EQUAL(str(algo.getFirst("R")), str(std::set<char>({'a', ParserLR::END})));
+}
+
+BOOST_AUTO_TEST_CASE(LRTestProcess3) {
+    ParserLR algo = getLR_cycled();
+    BOOST_CHECK_EQUAL(algo.process(""), true);
+    BOOST_CHECK_EQUAL(algo.process("a"), false); 
+    BOOST_CHECK_EQUAL(algo.process("c"), false);
+    BOOST_CHECK_EQUAL(algo.process("ab"), true);
+    BOOST_CHECK_EQUAL(algo.process("ba"), false);
+    BOOST_CHECK_EQUAL(algo.process("abab"), true);
+    BOOST_CHECK_EQUAL(algo.process("aababb"), true);
+    BOOST_CHECK_EQUAL(algo.process("aabb"), true); 
 }

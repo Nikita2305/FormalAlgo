@@ -9,7 +9,7 @@ void Earley::fit(const Grammar& g) {
     S1 = grammar.getS();
 }
 
-bool Earley::process(const std::string& word) {
+bool Earley::process(const std::string& word) const {
     std::vector<ConfigurationSet> sets; 
     sets.emplace_back();
     sets[0].before_point = 0;

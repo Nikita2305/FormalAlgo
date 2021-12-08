@@ -1,7 +1,7 @@
 #include <Grammar.h>
 #include <string>
 
-Grammar::Grammar(const std::string& terminals, const std::string& letters, char S): terminals(terminals), letters(letters), S(S) {}
+Grammar::Grammar(const std::string& non_terminals, const std::string& letters, char S): non_terminals(non_terminals), letters(letters), S(S) {}
 
 void Grammar::appendRules(const std::vector<Rule>& addition) {
     for (const Rule& rule : addition) {
@@ -11,14 +11,14 @@ void Grammar::appendRules(const std::vector<Rule>& addition) {
 
 void Grammar::changeStart() {
     char new_start = S;
-    for (char x : terminals) {
+    for (char x : non_terminals) {
         new_start = std::min(new_start, x);
     }
     for (char x : letters) {
         new_start = std::min(new_start, x);
     }
     new_start--;
-    terminals.push_back(new_start); 
+    non_terminals.push_back(new_start); 
     rules.push_back({new_start, std::string(1, S)});
     S = new_start;
 }
@@ -37,8 +37,8 @@ std::vector<Rule> Grammar::getCertainRules(char premise) const {
     return ret;
 }
 
-const std::string& Grammar::getTerminals() const {
-    return terminals;
+const std::string& Grammar::getNonTerminals() const {
+    return non_terminals;
 }
 
 const std::string& Grammar::getAlphabet() const {

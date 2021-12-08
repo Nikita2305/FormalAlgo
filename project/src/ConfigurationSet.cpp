@@ -1,6 +1,6 @@
-#include <Configuration.h>
+#include <ConfigurationSet.h>
 
-/*bool operator<(const Configuration& a, const Configuration& b) {
+bool compare_configs(const Configuration& a, const Configuration& b) {
     if (a.before_situation != b.before_situation) {
         return a.before_situation < b.before_situation;
     }
@@ -11,4 +11,6 @@
         return a.situation.rule.premise < b.situation.rule.premise;
     }
     return a.situation.rule.result < b.situation.rule.result;
-}*/
+}
+
+ConfigurationSet::ConfigurationSet(): configs(compare_configs), before_point(0) {}

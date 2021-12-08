@@ -5,7 +5,7 @@ mkdir build
 cd build
 cmake ..
 make
-./test/Test --log_level=test_suite 
+./test/Test --log_level=all 
 cd ..
 rm -rf build
 
