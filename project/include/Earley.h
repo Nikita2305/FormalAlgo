@@ -5,14 +5,14 @@
 
 class Earley: public Algo {
 public:
-    void fit(const Grammar& g) override;
+    void fit(const Grammar& sourceGrammar) override;
     bool process(const std::string& word) const override;
-    bool Scan(ConfigurationSet& D, const Configuration& conf, char letter) const;
-    bool Complete(ConfigurationSet& D, const Configuration& conf, const std::vector<ConfigurationSet>& sets) const;
-    bool Predict(ConfigurationSet& D, const Configuration& conf) const;
+    bool Scan(ConfigurationSet& destination, const Configuration& config, char letter) const;
+    bool Complete(ConfigurationSet& destination, const Configuration& config, const std::vector<ConfigurationSet>& sets) const;
+    bool Predict(ConfigurationSet& destination, const Configuration& config) const;
 private:
     Grammar grammar;
-    char S1;
-    char S;
+    char new_start;
+    char prev_start;
     void update(std::vector<ConfigurationSet>& sets, int index) const;
 };

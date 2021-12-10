@@ -10,7 +10,7 @@ BOOST_AUTO_TEST_CASE(GrammarTestGetters) {
     Grammar g("SABC", "abc", 'S');
     BOOST_CHECK_EQUAL("SABC", g.getNonTerminals());
     BOOST_CHECK_EQUAL("abc", g.getAlphabet());
-    BOOST_CHECK_EQUAL('S', g.getS());
+    BOOST_CHECK_EQUAL('S', g.getStart());
 }
 
 bool operator!=(const Rule& a, const Rule& b) {
@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(GrammarTestCertainRules) {
 BOOST_AUTO_TEST_CASE(GrammarTestNewStart) {
     Grammar g("SX", "ab", 'S');
     g.changeStart();
-    BOOST_CHECK_EQUAL(g.getS(), 'R');
+    BOOST_CHECK_EQUAL(g.getStart(), 'R');
 }
 
 Earley getEarley() {
@@ -50,7 +50,6 @@ Earley getEarley() {
     rules.push_back({'S', "aX"});
     rules.push_back({'X', "aX"});
     rules.push_back({'X', "b"});
-    // eps, ab, aab, aaab
     g.appendRules(rules);
     Earley algo;
     algo.fit(g);
@@ -69,7 +68,7 @@ template <typename T>
 bool operator==(const std::set<T>& a, const std::set<T>& b) {
     if (a.size() != b.size())
         return false;
-    auto ai = a.begin();    
+    auto ai = a.begin();
     auto bi = b.begin();
     while (ai != a.end()) {
         if (*ai != *bi) {
@@ -90,15 +89,15 @@ bool operator==(const ConfigurationSet& a, const ConfigurationSet& b) {
 BOOST_AUTO_TEST_CASE(EarleyTestUpdate) {
     Earley algo = getEarley();
     std::vector<ConfigurationSet> vect;
-    vect.emplace_back(); 
+    vect.emplace_back();
     vect.back().configs.insert({{{'R', "S"}, 0}, 0});
     ConfigurationSet cs_true = vect[0];
 
-    algo.Predict(vect[0], *vect[0].configs.begin()); 
+    algo.Predict(vect[0], *vect[0].configs.begin());
     cs_true.configs.insert({{{'S', ""}, 0}, 0});
     cs_true.configs.insert({{{'S', "aX"}, 0}, 0});
     BOOST_REQUIRE(cs_true == vect[0]);
-   
+
     for (const Configuration& conf : vect[0].configs) {
         algo.Complete(vect[0], conf, vect);
     }
@@ -106,22 +105,22 @@ BOOST_AUTO_TEST_CASE(EarleyTestUpdate) {
     BOOST_REQUIRE(cs_true == vect[0]);
 }
 
-BOOST_AUTO_TEST_CASE(EarleyTestScan1) { 
+BOOST_AUTO_TEST_CASE(EarleyTestScan1) {
     Earley algo = getEarley();
     ConfigurationSet cs;
-    Configuration conf = {{{'R', "aS"}, 0}, 0}; 
+    Configuration conf = {{{'R', "aS"}, 0}, 0};
     algo.Scan(cs, conf, 'a');
-    
+
     ConfigurationSet cs_true;
-    Configuration new_conf = {{{'R', "aS"}, 1}, 0}; 
+    Configuration new_conf = {{{'R', "aS"}, 1}, 0};
     cs_true.configs.insert(new_conf);
     BOOST_CHECK(cs_true == cs);
 }
 
-BOOST_AUTO_TEST_CASE(EarleyTestScan2) { 
+BOOST_AUTO_TEST_CASE(EarleyTestScan2) {
     Earley algo = getEarley();
     ConfigurationSet cs;
-    Configuration conf = {{{'R', "aS"}, 0}, 0}; 
+    Configuration conf = {{{'R', "aS"}, 0}, 0};
     algo.Scan(cs, conf, 'b');
     BOOST_CHECK_EQUAL(cs.configs.size(), 0);
 }
@@ -234,11 +233,11 @@ BOOST_AUTO_TEST_CASE(LRTestGetFirst3) {
 BOOST_AUTO_TEST_CASE(LRTestProcess3) {
     ParserLR algo = getLR_cycled();
     BOOST_CHECK_EQUAL(algo.process(""), true);
-    BOOST_CHECK_EQUAL(algo.process("a"), false); 
+    BOOST_CHECK_EQUAL(algo.process("a"), false);
     BOOST_CHECK_EQUAL(algo.process("c"), false);
     BOOST_CHECK_EQUAL(algo.process("ab"), true);
     BOOST_CHECK_EQUAL(algo.process("ba"), false);
     BOOST_CHECK_EQUAL(algo.process("abab"), true);
     BOOST_CHECK_EQUAL(algo.process("aababb"), true);
-    BOOST_CHECK_EQUAL(algo.process("aabb"), true); 
+    BOOST_CHECK_EQUAL(algo.process("aabb"), true);
 }

@@ -6,11 +6,11 @@
 
 char ParserLR::END = '$';
 
-void ParserLR::fit(const Grammar& g) {
-    grammar = g;
-    S = grammar.getS();
+void ParserLR::fit(const Grammar& sourceGrammar) {
+    grammar = sourceGrammar;
+    prev_start = grammar.getStart();
     grammar.changeStart();
-    S1 = grammar.getS();
+    new_start = grammar.getStart();
     countEpsilonCreators();
     for (char NonTerm : grammar.getNonTerminals()) {
         FIRST[NonTerm] = std::set<char>();
@@ -46,7 +46,7 @@ bool operator==(const std::set<T>& a, const std::set<T>& b) {
 
 void ParserLR::buildAutomaton() {
     nodes.emplace_back();
-    nodes[0].situations.insert(SituationLR({Rule({S1, std::string(1, S)}), 0, END}));
+    nodes[0].situations.insert(SituationLR({Rule({new_start, std::string(1, prev_start)}), 0, END}));
     std::queue<int> process_queue;
     process_queue.push(0);
     makeClosure(0);
@@ -58,23 +58,23 @@ void ParserLR::buildAutomaton() {
     }
 }
 
-std::vector<int> ParserLR::processNode(int v) {
+std::vector<int> ParserLR::processNode(int vertex) {
     std::vector<int> new_nodes;
     std::unordered_map<char,  Rule> reduces;
     std::unordered_map<char, std::vector<SituationLR>> moves;
-    for (const SituationLR& situation : nodes[v].situations) {
+    for (const SituationLR& situation : nodes[vertex].situations) {
         if (situation.point == situation.rule.result.length()) {
             if (reduces.find(situation.next) != reduces.end()) {
                 throw std::runtime_error("Reduce-reduce conflict");
             }
             reduces[situation.next] = situation.rule;
         } else {
-            char c = situation.rule.result[situation.point]; 
-            if (moves.find(c) == moves.end()) {
-                moves[c] = std::vector<SituationLR>();
+            char next_symbol = situation.rule.result[situation.point];
+            if (moves.find(next_symbol) == moves.end()) {
+                moves[next_symbol] = std::vector<SituationLR>();
             }
-            moves[c].push_back(situation);
-            moves[c].back().point++;
+            moves[next_symbol].push_back(situation);
+            moves[next_symbol].back().point++;
         }
     }
     std::unordered_map<char, int> shifts;
@@ -103,10 +103,10 @@ std::vector<int> ParserLR::processNode(int v) {
             throw std::runtime_error("Shift-reduce conflict");
         }
         if (reduces.find(symbol) != reduces.end()) {
-            nodes[v].instructions.insert({symbol, Instruction(reduces[symbol])});
+            nodes[vertex].instructions.insert({symbol, Instruction(reduces[symbol])});
         }
         if (shifts.find(symbol) != shifts.end()) {
-            nodes[v].instructions.insert({symbol, Instruction(shifts[symbol])});
+            nodes[vertex].instructions.insert({symbol, Instruction(shifts[symbol])});
         }   
     }
     return new_nodes;
@@ -122,10 +122,10 @@ void ParserLR::makeClosure(int id) {
             if (point == length) {
                 continue;
             }
-            char c = situation.rule.result[situation.point];
-            std::set<char> nexts = getFirst(situation.rule.result.substr(point + 1, length - point - 1) + (situation.next == END ? "" : std::string(1, situation.next)));
-            for (const Rule& rule : grammar.getCertainRules(c)) {
-                for (char next : nexts) {
+            char next_symbol = situation.rule.result[situation.point];
+            std::set<char> next_symbols = getFirst(situation.rule.result.substr(point + 1, length - point - 1) + (situation.next == END ? "" : std::string(1, situation.next)));
+            for (const Rule& rule : grammar.getCertainRules(next_symbol)) {
+                for (char next : next_symbols) {
                     nodes[id].situations.insert(SituationLR({rule, 0, next}));
                 }
             } 
@@ -140,8 +140,8 @@ void ParserLR::countEpsilonCreators() {
         size_t size = epsilon_creators.size();
         for (const Rule& rule  : grammar.getRules()) {
             bool epsilon_maker = true;
-            for (char c : rule.result) {
-                if (epsilon_creators.find(c) == epsilon_creators.end()) {
+            for (char symbol : rule.result) {
+                if (epsilon_creators.find(symbol) == epsilon_creators.end()) {
                     epsilon_maker = false;
                     break; 
                 }
@@ -160,15 +160,15 @@ void ParserLR::countFirst(char current, const char target, std::set<char>& proce
         if (rule.result.length() == 0) {
             continue;
         }
-        for (char c : rule.result) {
-            if (grammar.getAlphabet().find(c) != std::string::npos) {
-                FIRST[target].insert(c);
+        for (char symbol : rule.result) {
+            if (grammar.getAlphabet().find(symbol) != std::string::npos) {
+                FIRST[target].insert(symbol);
                 break;
             }
-            if (processed.find(c) == processed.end()) {
-                countFirst(c, target, processed);
+            if (processed.find(symbol) == processed.end()) {
+                countFirst(symbol, target, processed);
             }
-            if (epsilon_creators.find(c) == epsilon_creators.end()) {
+            if (epsilon_creators.find(symbol) == epsilon_creators.end()) {
                 break;
             }
         }  
@@ -182,7 +182,7 @@ bool ParserLR::process(const std::string& word) const {
     std::reverse(process_word.begin(), process_word.end());
     while (process_word.length() > 0) {
         if (nodes[node].instructions.find(process_word.back()) == nodes[node].instructions.end()) {
-            if (process_word.back() == S1) {
+            if (process_word.back() == new_start) {
                 break;
             }
             return false;
@@ -210,25 +210,25 @@ const std::set<char>& ParserLR::getEpsilonCreators() const {
     return epsilon_creators; 
 }
 
-std::set<char> ParserLR::getFirst(const std::string& w) {
+std::set<char> ParserLR::getFirst(const std::string& expression) {
     std::set<char> ret = {END};
-    for (char c : w) {
-        if (epsilon_creators.find(c) == epsilon_creators.end()) {
+    for (char symbol : expression) {
+        if (epsilon_creators.find(symbol) == epsilon_creators.end()) {
             ret.erase(END);
             break;
         }
     }
-    if (w.length() == 0) {
+    if (expression.length() == 0) {
         return ret;
     }
-    if (grammar.getAlphabet().find(w[0]) != std::string::npos) {
-        ret.insert(w[0]);
+    if (grammar.getAlphabet().find(expression[0]) != std::string::npos) {
+        ret.insert(expression[0]);
         return ret;
     }
-    if (FIRST.find(w[0]) == FIRST.end()) {
+    if (FIRST.find(expression[0]) == FIRST.end()) {
         return ret;
     }
-    std::set<char> rret = FIRST[w[0]];
+    std::set<char> rret = FIRST[expression[0]];
     rret.merge(ret);
     return rret;
 }
